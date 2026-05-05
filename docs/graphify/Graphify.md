@@ -70,5 +70,3 @@ Or for deeper analysis:
 
 **GitHub**: https://github.com/safishamsi/graphify  
 **Website**: https://graphify.net/
-
-
