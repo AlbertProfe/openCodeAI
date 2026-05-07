@@ -1,12 +1,41 @@
 # Tools
 
+## Summary
+
 - [Tools | OpenCode](https://opencode.ai/docs/tools)
 
 Tools allow the LLM to perform actions in your codebase. OpenCode comes with a set of built-in tools, but you can extend it with [custom tools](https://opencode.ai/docs/custom-tools) or [MCP servers](https://opencode.ai/docs/mcp-servers).
 
 By default, all tools are **enabled** and don’t need permission to run. You can control tool behavior through [permissions](https://opencode.ai/docs/permissions).
 
-## Example:
+## Custom Tools
+
+- [Custom Tools | OpenCode](https://opencode.ai/docs/custom-tools/)
+- [Creating a tool](https://opencode.ai/docs/custom-tools/#creating-a-tool)
+- [Location](https://opencode.ai/docs/custom-tools/#location)
+- [Structure](https://opencode.ai/docs/custom-tools/#structure)
+
+> Custom tools are functions you create that the LLM can call during conversations. They work alongside opencode’s [built-in tools](https://opencode.ai/docs/tools) like `read`, `write`, and `bash`.
+
+Tools are defined as **TypeScript** or **JavaScript** files. However, the tool definition can invoke scripts written in **any language** — TypeScript or JavaScript is only used for the tool definition itself.
+
+They can be defined:
+
+- Locally by placing them in the `.opencode/tools/` directory of your project.
+- Or globally, by placing them in `~/.config/opencode/tools/`.
+
+The easiest way to create tools is using the `tool()` helper which provides type-safety and validation.
+
+.opencode/tools/database.ts
+
+```jsx
+import { tool } from "@opencode-ai/plugin"
+export default tool({  description: "Query the project database",  args: {    query: tool.schema.string().describe("SQL query to execute"),  },  async execute(args) {    // Your database logic here    return `Executed query: ${args.query}`  },})
+```
+
+The **filename** becomes the **tool name**. The above creates a `database` tool.
+
+### Example:
 
 `Simple Command`
 
