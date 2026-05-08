@@ -81,3 +81,152 @@ This approach is ideal for **production-grade agent testing** and showcases the 
 
 - Use the **Agent + MCP approach** for the full WebMCP demo experience — it’s what the demo was built for.
 - Keep the **Puppeteer script** as a fast backup or for environments where MCP isn’t configured.
+
+## Puppeteer Code
+
+- [openCodeAI/mcp-test/flight-search.mjs at master · AlbertProfe/openCodeAI · GitHub](https://github.com/AlbertProfe/openCodeAI/blob/master/mcp-test/flight-search.mjs)
+  
+  - <mark>Older version:</mark> [openCodeAI/mcp-test/flight-search.cjs at master · AlbertProfe/openCodeAI · GitHub](https://github.com/AlbertProfe/openCodeAI/blob/master/mcp-test/flight-search.cjs)
+
+## 1. **Import and Connect to Chrome**
+
+```js
+import { chromium } from 'puppeteer';
+
+const browser = await chromium.connect({ browserURL: 'http://127.0.0.1:9222' });
+```
+
+- Uses **Puppeteer’s Chromium** module.
+- **Connects** to an **already running** Chrome browser instead of launching a new one.
+- Connects via the **DevTools Protocol** on port `9222` (Chrome must be started with remote debugging enabled).
+
+## 2. **Get or Create a Page**
+
+```js
+const pages = await browser.pages();
+const page = pages[0] || await browser.newPage();
+```
+
+- Gets all open tabs/pages in the connected Chrome.
+- Uses the first tab if available, otherwise opens a new one.
+
+## 3. **Navigate to the Flight Search Demo**
+
+```js
+await page.goto('https://googlechromelabs.github.io/webmcp-tools/demos/react-flightsearch/', { 
+    waitUntil: 'networkidle0', 
+    timeout: 30000 
+});
+```
+
+- Opens the WebMCP flight search demo page.
+- `waitUntil: 'networkidle0'` → waits until the network is idle (no requests for 500ms).
+- `timeout: 30000` → gives 30 seconds to load.
+
+## 4. **Fill the Search Form**
+
+* Smart Input Detection)
+
+```js
+const inputs = await page.$$('input, combobox');
+
+for (const input of inputs) {
+  const label = await input.evaluate(el => {
+    const prev = el.previousElementSibling;
+    return prev?.textContent || el.getAttribute('placeholder') || el.getAttribute('name') || '';
+  });
+
+  if (label.toLowerCase().includes('origin')) { 
+    await input.click(); 
+    await input.type('BCN', { delay: 50 }); 
+  }
+  if (label.toLowerCase().includes('destination')) { 
+    await input.click(); 
+    await input.type('RIO', { delay: 50 }); 
+  }
+  if (label.toLowerCase().includes('passenger')) { 
+    await input.click(); 
+    await input.type('2', { delay: 50 }); 
+  }
+}
+```
+
+**How it works:**
+
+- `page.$$('input, combobox')` → finds all input fields and comboboxes.
+- For each input, it runs JavaScript in the browser (`evaluate`) to guess its label by:
+  - Looking at the previous sibling element (often a `<label>`).
+  - Or checking `placeholder` attribute.
+  - Or checking `name` attribute.
+- Then it matches keywords:
+  - “origin” → types **BCN** (Barcelona)
+  - “destination” → types **RIO** (Rio de Janeiro)
+  - “passenger” → types **2**
+
+The `{ delay: 50 }` makes typing more human-like.
+
+## 5. **Click the Search Button**
+
+```js
+const buttons = await page.$$('button');
+
+for (const btn of buttons) {
+  const text = await btn.evaluate(el => el.textContent);
+  if (text.toLowerCase().includes('search')) { 
+    await btn.click(); 
+    console.log('Clicked search'); 
+  }
+}
+```
+
+- Finds all `<button>` elements.
+- Checks the visible text of each button.
+- Clicks the one that contains the word **"search"**.
+
+## 6. **Wait for Results**
+
+```js
+await page.waitForTimeout(3000);
+```
+
+- Waits 3 seconds for the search results to load and appear on the page.
+
+## 7. **Extract and Print Results**
+
+```js
+const html = await page.content();  // Gets full HTML (not used here)
+
+console.log('Page loaded, checking results...');
+
+const results = await page.evaluate(() => {
+  const els = document.querySelectorAll('button, statictext, [class*="flight"]');
+  return Array.from(els).slice(0,30).map(e => e.textContent).join('\n');
+});
+
+console.log(results);
+```
+
+- `page.evaluate()` runs JavaScript directly in the browser page.
+- Selects:
+  - All buttons
+  - Elements with tag `statictext` (possibly custom elements)
+  - Any element whose class contains “flight”
+- Takes the first 30 elements, extracts their text, and joins them with new lines.
+- Prints the results to the console.
+
+## 8. **Close the Browser**
+
+```js
+await browser.close();
+```
+
+Closes the connection (does **not** close the actual Chrome window if you connected to an existing one).
+
+### Summary – What This Script Does:
+
+1. Connects to running Chrome.
+2. Opens the flight search demo.
+3. Automatically fills: **BCN → RIO**, 2 passengers.
+4. Clicks the Search button.
+5. Waits for results.
+6. Scrapes and prints flight results.
